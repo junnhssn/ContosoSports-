@@ -1,0 +1,179 @@
+name: Contoso Sports Production Deployment
+
+# This workflow is triggered on push to the master branch of the repository
+on:
+push:
+    branches:
+    - master
+
+# Environment variables are defined so that they can be used throughout the job definitions.
+# Be sure to replace the tokens in the AZURE_*_NAME variables with the names of the resources in Azure
+env:  
+AZURE_WEBAPP_NAME: '<E-Commerce Web Application Name - named similar to contosoapp{random characters}>'
+AZURE_WEBAPP_PROJECT_NAME: 'Contoso.Apps.SportsLeague.Web'  
+AZURE_WEBAPP_PUBLISH_PROFILE: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+
+AZURE_ADMINAPP_NAME: '<The name of the Call Center admin App Service in Azure>'
+AZURE_ADMINAPP_PROJECT_NAME: 'Contoso.Apps.SportsLeague.Admin'
+
+AZURE_API_PAYMENT_NAME: '<The name of the Payments API App Service in Azure>'
+AZURE_API_PAYMENT_PROJECT_NAME: 'Contoso.Apps.PaymentGateway'
+AZURE_API_PAYMENT_PUBLISH_PROFILE: ${{ secrets.AZURE_API_PAYMENT_PUBLISH_PROFILE }}
+
+AZURE_API_OFFERS_NAME: '<The name of the Offers API App Service in Azure>'
+AZURE_API_OFFERS_PROJECT_NAME: 'Contoso.Apps.SportsLeague.Offers'
+AZURE_API_OFFERS_PUBLISH_PROFILE: ${{ secrets.AZURE_API_OFFERS_PUBLISH_PROFILE }}
+
+AZURE_FUNCTIONAPP_NAME: '<The name of the Function App in Azure>'
+AZURE_FUNCTIONAPP_PROJECT_NAME: 'Contoso.Apps.FunctionApp'
+AZURE_FUNCTIONAPP_PUBLISH_PROFILE: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
+
+DOTNET_VERSION: '3.1.102'
+
+# Jobs define the actions that take place when code is pushed to the master branch
+jobs:
+
+# Build and deploy the E-Commerce Web Application using the Publish Profile
+build-and-deploy-webapp:
+    runs-on: ubuntu-latest
+    steps:
+    # Checkout the repo
+    - uses: actions/checkout@master
+
+    # Setup .NET Core SDK
+    - name: Setup .NET Core
+        uses: actions/setup-dotnet@v1
+        with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    # Run dotnet build and publish on the project
+    - name: dotnet build web portal and publish
+        run: |
+        dotnet build ${{ env.AZURE_WEBAPP_PROJECT_NAME }} --configuration Release
+        dotnet publish ${{ env.AZURE_WEBAPP_PROJECT_NAME }} -c Release -o './webdeploy'
+
+    # Deploy to Azure Application Service
+    - name: 'Deploy public web portal'
+        uses: azure/webapps-deploy@v2
+        with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        package: './webdeploy'
+
+# Build and deploy the Call Center admin using the Service Principal credentials
+build-and-deploy-admin:
+    runs-on: ubuntu-latest
+    steps:
+    # Checkout the repo
+    - uses: actions/checkout@master
+
+    # Setup .NET Core SDK
+    - name: Setup .NET Core
+        uses: actions/setup-dotnet@v1
+        with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    # Run dotnet build and publish
+    - name: dotnet build web portal and publish on the project
+        run: |
+        dotnet build ${{ env.AZURE_ADMINAPP_PROJECT_NAME }} --configuration Release
+        dotnet publish ${{ env.AZURE_ADMINAPP_PROJECT_NAME }} -c Release -o './admindeploy'
+
+    # Login to Azure
+    - name: Login via Az module
+        uses: azure/login@v1.1
+        with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    # Deploy to Azure Application Service
+    - name: 'Deploy admin web portal'
+        uses: azure/webapps-deploy@v2
+        with:
+        app-name: ${{ env.AZURE_ADMINAPP_NAME }}
+        credentials: ${{ secrets.AZURE_CREDENTIALS }}
+        package: './admindeploy'
+
+    ##Azure logout
+    - name: logout
+        run: |
+        az logout
+
+# Build and deploy the Payments API using the Publish Profile
+build-and-deploy-payment-api:
+    runs-on: ubuntu-latest
+    steps:
+    # Checkout the repo
+    - uses: actions/checkout@master
+
+    # Setup .NET Core SDK
+    - name: Setup .NET Core
+        uses: actions/setup-dotnet@v1
+        with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    # Run dotnet build and publish on the project
+    - name: dotnet build web portal and publish
+        run: |
+        dotnet build ${{ env.AZURE_API_PAYMENT_PROJECT_NAME }} --configuration Release
+        dotnet publish ${{ env.AZURE_API_PAYMENT_PROJECT_NAME }} -c Release -o './paymentapideploy'
+
+    # Deploy to Azure App Service 
+    - name: 'Deploy payments API'
+        uses: azure/webapps-deploy@v2
+        with:
+        app-name: ${{ env.AZURE_API_PAYMENT_NAME }}
+        publish-profile: ${{ env.AZURE_API_PAYMENT_PUBLISH_PROFILE }}
+        package: './paymentapideploy'
+
+# Build and deploy the Offer API using the Publish Profile
+build-and-deploy-offer-api:
+    runs-on: ubuntu-latest
+    steps:
+    # Checkout the repo
+    - uses: actions/checkout@master
+
+    # Setup .NET Core SDK
+    - name: Setup .NET Core
+        uses: actions/setup-dotnet@v1
+        with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    # Run dotnet build and publish on the project
+    - name: dotnet build web portal and publish
+        run: |
+        dotnet build ${{ env.AZURE_API_OFFERS_PROJECT_NAME }} --configuration Release
+        dotnet publish ${{ env.AZURE_API_OFFERS_PROJECT_NAME }} -c Release -o './offerapideploy'
+
+    # Deploy to Azure App Service
+    - name: 'Deploy offers API'
+        uses: azure/webapps-deploy@v2
+        with:
+        app-name: ${{ env.AZURE_API_OFFERS_NAME }}
+        publish-profile: ${{ env.AZURE_API_OFFERS_PUBLISH_PROFILE }}
+        package: './offerapideploy'
+
+# Build and deploy the PDF receipt generation function app using the publish profile
+build-and-deploy-pdffunctionapp:
+    runs-on: ubuntu-latest
+    steps:
+    # Checkout the repo
+    - uses: actions/checkout@master
+
+    # Setup .NET Core SDK
+    - name: Setup .NET Core
+        uses: actions/setup-dotnet@v1
+        with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    # Run dotnet build and publish on the project
+    - name: dotnet build web portal and publish
+        run: |
+        dotnet build ${{ env.AZURE_FUNCTIONAPP_PROJECT_NAME  }} --configuration Release
+        dotnet publish ${{ env.AZURE_FUNCTIONAPP_PROJECT_NAME  }} -c Release -o './pdfappdeploy'
+
+    - name: 'Deploy to Azure Function App service'
+        uses: Azure/functions-action@v1
+        with:
+        app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
+        package: './pdfappdeploy'
+        publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
